@@ -7,7 +7,6 @@ from selenium.common import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from datetime import timedelta
 import os
 from selenium.webdriver.chrome.service import Service
 from telegram import Bot
@@ -25,21 +24,12 @@ db = client['sent_teams_db']
 sent_teams_collection = db['sent_teams_bundes']
 
 
-"""def is_today(date_string):
+def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
     today = datetime.today().date()
     return match_date.date() == today
-    """
-
-
-def is_yesterday(date_string):
-    date_string = date_string.split()[0].rsplit('.', 1)[0]
-    current_year = datetime.today().year
-    match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    yesterday = datetime.today().date() - timedelta(days=5)
-    return match_date.date() == yesterday
 
 
 def get_team_homepage_links(browser, home_team, away_team):
@@ -157,9 +147,8 @@ for row in match_rows:
     date_col = row.select_one('td.aleft')
     if date_col is not None:
         date_str = date_col.get_text(strip=True).split('\n')[0].strip()
-        if is_yesterday(date_str):
+        if is_today(date_str):
             match_link = base_url + row.select_one('td.acenter.large a')['href']
-            #print(match_link)
             match_links.append(match_link)
 
 for match_link in match_links:
@@ -244,10 +233,12 @@ for match_link in match_links:
 
         if not already_sent(home_team, today, sent_teams_collection):
             send_telegram_message(missing_home_team_players, home_team, CHAT_ID_1)
+            send_telegram_message(missing_home_team_players, home_team, CHAT_ID_2)
             insert_missing_players(home_team, today, sent_teams_collection)
 
         if not already_sent(away_team, today, sent_teams_collection):
             send_telegram_message(missing_away_team_players, away_team, CHAT_ID_1)
+            send_telegram_message(missing_home_team_players, home_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
