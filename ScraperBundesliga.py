@@ -159,7 +159,7 @@ for row in match_rows:
         date_str = date_col.get_text(strip=True).split('\n')[0].strip()
         if is_yesterday(date_str):
             match_link = base_url + row.select_one('td.acenter.large a')['href']
-            print(match_link)
+            #print(match_link)
             match_links.append(match_link)
 
 for match_link in match_links:
