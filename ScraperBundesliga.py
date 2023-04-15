@@ -62,19 +62,25 @@ def click_statistik_button(browser):
 
 def extract_all_player_info(browser):
     player_name_list = []
+    players_goals_list = []
 
     try:
         player_name_elements = browser.find_elements(By.XPATH, '//td[@class="aleft footable-visible"]/a')
+        player_goals_elements = browser.find_elements(By.XPATH, '//tr/td[4]')
 
         for player_name_element in player_name_elements:
             player_name_parts = player_name_element.text.strip().split('\n')
             player_full_name = f"{player_name_parts[0]} {player_name_parts[1].strip()}".upper()
             player_name_list.append(player_full_name)
 
+        for player_goals_element in player_goals_elements:
+            player_goals = player_goals_element.text.strip()
+            players_goals_list.append(player_goals)
+
     except NoSuchElementException:
         print("Player info not found.")
 
-    return player_name_list
+    return player_name_list, players_goals_list
 
 
 def normalize_player_name(player_name):
@@ -104,8 +110,8 @@ def already_sent(team_name, date, collection):
     return result is not None
 
 
-def send_telegram_message(missing_players, team_name, chat_id):
-    formatted_text = f"Players missing for {team_name}:\n" + '\n'.join(missing_players)
+def send_telegram_message(missing_players_goals, team_name, chat_id):
+    formatted_text = f"Players missing for {team_name}:\n" + '\n'.join([f"{player} - {goals} goals" for player, goals in missing_players_goals.items()])
     bot.send_message(chat_id=chat_id, text=formatted_text)
 
 
@@ -213,7 +219,7 @@ for match_link in match_links:
 
         click_statistik_button(browser)
         time.sleep(3)
-        home_team_player_info = extract_all_player_info(browser)
+        home_team_player_info, home_team_goals_info = extract_all_player_info(browser)
         home_team_player_info_set = set(home_team_player_info)
 
         # Navigate to away team's homepage
@@ -222,23 +228,26 @@ for match_link in match_links:
 
         click_statistik_button(browser)
         time.sleep(3)
-        away_team_player_info = extract_all_player_info(browser)
+        away_team_player_info, away_team_goals_info = extract_all_player_info(browser)
         away_team_player_info_set = set(away_team_player_info)
 
         # Compare and print the players that are only in extract_all_player_info
         missing_home_team_players = home_team_player_info_set - home_team_player_elements_set
         missing_away_team_players = away_team_player_info_set - away_team_player_elements_set
 
+        missing_home_team_players_goals = {player: goals for player, goals in zip(home_team_player_info, home_team_goals_info) if player in missing_home_team_players}
+        missing_away_team_players_goals = {player: goals for player, goals in zip(away_team_player_info, away_team_goals_info) if player in missing_away_team_players}
+
         today = datetime.combine(date.today(), datetime.min.time())
 
         if not already_sent(home_team, today, sent_teams_collection):
-            send_telegram_message(missing_home_team_players, home_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players, home_team, CHAT_ID_2)
+            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_1)
+            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
             insert_missing_players(home_team, today, sent_teams_collection)
 
         if not already_sent(away_team, today, sent_teams_collection):
-            send_telegram_message(missing_away_team_players, away_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players, home_team, CHAT_ID_2)
+            send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_1)
+            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
