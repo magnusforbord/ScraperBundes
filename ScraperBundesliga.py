@@ -11,6 +11,7 @@ import os
 from selenium.webdriver.chrome.service import Service
 from telegram import Bot
 from webdriver_manager.chrome import ChromeDriverManager
+import re
 
 TELEGRAM_TOKEN = '6292195328:AAGvt_A6i9TY-kf6REOSYoMymHm2NzQk-Hk'
 CHAT_ID_1 = '83365754'
@@ -159,9 +160,11 @@ for row in match_rows:
 
 for match_link in match_links:
     browser.get(match_link)
-    team_names = match_link.split('--')[-2:]  # extract team names from link
-    team_names = [name.strip('-').title() for name in team_names]  # remove hyphens and title case team names
-    home_team, away_team = team_names
+
+    pattern = r'spieltag--([\w\s-]+?)---([\w\s-]+?)\/'
+    team_names = re.search(pattern, match_link)
+    home_team, away_team = team_names.group(1), team_names.group(2)
+
     time.sleep(5)
 
     try:
@@ -242,12 +245,12 @@ for match_link in match_links:
 
         if not already_sent(home_team, today, sent_teams_collection):
             send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
+            #send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
             insert_missing_players(home_team, today, sent_teams_collection)
 
         if not already_sent(away_team, today, sent_teams_collection):
             send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
+            #send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
