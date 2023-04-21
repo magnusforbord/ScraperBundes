@@ -12,7 +12,6 @@ from selenium.webdriver.chrome.service import Service
 from telegram import Bot
 from webdriver_manager.chrome import ChromeDriverManager
 import re
-from datetime import timedelta
 
 TELEGRAM_TOKEN = '6292195328:AAGvt_A6i9TY-kf6REOSYoMymHm2NzQk-Hk'
 CHAT_ID_1 = '83365754'
@@ -30,7 +29,7 @@ def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date() - timedelta(1)
+    today = datetime.today().date()
     return match_date.date() == today
 
 
