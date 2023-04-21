@@ -12,6 +12,7 @@ from selenium.webdriver.chrome.service import Service
 from telegram import Bot
 from webdriver_manager.chrome import ChromeDriverManager
 import re
+from datetime import timedelta
 
 TELEGRAM_TOKEN = '6292195328:AAGvt_A6i9TY-kf6REOSYoMymHm2NzQk-Hk'
 CHAT_ID_1 = '83365754'
@@ -29,7 +30,7 @@ def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date()
+    today = datetime.today().date() - timedelta(1)
     return match_date.date() == today
 
 
@@ -116,11 +117,30 @@ def send_telegram_message(missing_players_goals, team_name, chat_id):
     bot.send_message(chat_id=chat_id, text=formatted_text)
 
 
+def wait_for_players_or_preliminary(browser):
+    def players_or_preliminary(_):
+        try:
+            browser.find_element(By.XPATH, '//div[contains(text(), "Vorläufig")]')
+            return True
+        except NoSuchElementException:
+            pass
+
+        try:
+            browser.find_elements(By.XPATH, '//div[@class="sr-matchlineups-row sr-border sr-clearfix"]')
+            return True
+        except NoSuchElementException:
+            pass
+
+        return False
+
+    return players_or_preliminary
+
+
 base_url = 'https://www.liquimoly-hbl.de'
 
 chrome_options = webdriver.ChromeOptions()
 chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
-chrome_options.add_argument("--headless")
+#chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument("--no-sandbox")
 chrome_service = Service(executable_path=ChromeDriverManager().install())
@@ -178,6 +198,13 @@ for match_link in match_links:
         # Locate and click on the Aufstellungen div to open lineups
         aufstellungen_div = browser.find_element(By.CSS_SELECTOR, 'body > div.srl-wrapper > div > div.srl-content > div.srl-main-content.srl-flex > div.srl-tabs-wrapper.srl-flex-child > div > div.srl-tabs-header.sr-clearfix > div:nth-child(2)')
         browser.execute_script("arguments[0].click()", aufstellungen_div)
+
+        wait = WebDriverWait(browser, 5)
+        try:
+            wait.until(wait_for_players_or_preliminary(browser))
+        except TimeoutException:
+            print("Neither players nor 'Vorläufig' found.")
+            continue
 
         # Wait for the desired element to appear
         wait = WebDriverWait(browser, 20)
