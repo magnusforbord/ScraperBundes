@@ -276,7 +276,7 @@ for match_link in match_links:
 
         if not already_sent(away_team, today, sent_teams_collection):
             send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
+            send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
