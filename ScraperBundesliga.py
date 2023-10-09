@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 from selenium import webdriver
@@ -29,7 +29,7 @@ def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date() - timedelta(1)
+    today = datetime.today().date()
     return match_date.date() == today
 
 
