@@ -291,7 +291,7 @@ for match_link in match_links:
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
-        print("No such element found")
+        print("No such elements found")
         continue
     except TimeoutException:
         print("Script timed out")
