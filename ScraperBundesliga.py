@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 from selenium import webdriver
@@ -29,7 +29,7 @@ def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date()
+    today = datetime.today().date() - timedelta(1)
     return match_date.date() == today
 
 
@@ -64,10 +64,12 @@ def click_statistik_button(browser):
 def extract_all_player_info(browser):
     player_name_list = []
     players_goals_list = []
+    players_assists_list = []  # New list for assists
 
     try:
         player_name_elements = browser.find_elements(By.XPATH, '//td[@class="aleft footable-visible"]/a')
         player_goals_elements = browser.find_elements(By.XPATH, '//tr/td[4]')
+        player_assist_elements = browser.find_elements(By.XPATH, '//tr/td[9]')  # XPath to locate assist elements
 
         for player_name_element in player_name_elements:
             player_name_parts = player_name_element.text.strip().split('\n')
@@ -78,10 +80,14 @@ def extract_all_player_info(browser):
             player_goals = player_goals_element.text.strip()
             players_goals_list.append(player_goals)
 
+        for player_assist_element in player_assist_elements:  # Loop to extract assist data
+            player_assists = player_assist_element.text.strip()
+            players_assists_list.append(player_assists)  # Append assist data to the new list
+
     except NoSuchElementException:
         print("Player info not found.")
 
-    return player_name_list, players_goals_list
+    return player_name_list, players_goals_list, players_assists_list  # Include the new list in the return statement
 
 
 def normalize_player_name(player_name):
@@ -111,8 +117,9 @@ def already_sent(team_name, date, collection):
     return result is not None
 
 
-def send_telegram_message(missing_players_goals, team_name, chat_id):
-    formatted_text = f"Players missing for {team_name}:\n" + '\n'.join([f"{player} - {goals} goals" for player, goals in missing_players_goals.items()])
+def send_telegram_message(players_info, team_name, chat_id):
+    formatted_text = f"Players missing for {team_name}:\n"
+    formatted_text += '\n'.join([f"{player} - {info[0]} goals - {info[1]} assists" for player, info in players_info.items()])
     bot.send_message(chat_id=chat_id, text=formatted_text)
 
 
@@ -190,6 +197,7 @@ for match_link in match_links:
         home_team_player_names = []
         away_team_player_names = []
 
+
         # Identify the iframe
         target_iframe = browser.find_element(By.CSS_SELECTOR, "iframe.sportradar-widget")
         browser.switch_to.frame(target_iframe)
@@ -242,13 +250,14 @@ for match_link in match_links:
         home_team_player_elements_set = set((player_name) for player_name in home_team_player_names)
         away_team_player_elements_set = set((player_name) for player_name in away_team_player_names)
 
+
         # Navigate to home team's homepage
         browser.get(home_team_link)
         time.sleep(5)
 
         click_statistik_button(browser)
         time.sleep(3)
-        home_team_player_info, home_team_goals_info = extract_all_player_info(browser)
+        home_team_player_info, home_team_goals_info, home_team_assists_info = extract_all_player_info(browser)
         home_team_player_info_set = set(home_team_player_info)
 
         # Navigate to away team's homepage
@@ -257,26 +266,28 @@ for match_link in match_links:
 
         click_statistik_button(browser)
         time.sleep(3)
-        away_team_player_info, away_team_goals_info = extract_all_player_info(browser)
+        away_team_player_info, away_team_goals_info, away_team_assists_info = extract_all_player_info(browser)
         away_team_player_info_set = set(away_team_player_info)
+
+
 
         # Compare and print the players that are only in extract_all_player_info
         missing_home_team_players = home_team_player_info_set - home_team_player_elements_set
         missing_away_team_players = away_team_player_info_set - away_team_player_elements_set
 
-        missing_home_team_players_goals = {player: goals for player, goals in zip(home_team_player_info, home_team_goals_info) if player in missing_home_team_players}
-        missing_away_team_players_goals = {player: goals for player, goals in zip(away_team_player_info, away_team_goals_info) if player in missing_away_team_players}
+        missing_home_team_players_info = {player: (goals, assists) for player, goals, assists in zip(home_team_player_info, home_team_goals_info, home_team_assists_info) if player in missing_home_team_players}
+        missing_away_team_players_info = {player: (goals, assists) for player, goals, assists in zip(away_team_player_info, away_team_goals_info, away_team_assists_info) if player in missing_away_team_players}
 
         today = datetime.combine(date.today(), datetime.min.time())
 
         if not already_sent(home_team, today, sent_teams_collection):
-            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players_goals, home_team, CHAT_ID_2)
+            send_telegram_message(missing_home_team_players_info, home_team, CHAT_ID_1)
+            #send_telegram_message(missing_home_team_players_info, home_team, CHAT_ID_2)
             insert_missing_players(home_team, today, sent_teams_collection)
 
         if not already_sent(away_team, today, sent_teams_collection):
-            send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_1)
-            send_telegram_message(missing_away_team_players_goals, away_team, CHAT_ID_2)
+            send_telegram_message(missing_away_team_players_info, away_team, CHAT_ID_1)
+            #send_telegram_message(missing_away_team_players_info, away_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
@@ -287,6 +298,3 @@ for match_link in match_links:
         continue
 
 browser.quit()
-
-
-
