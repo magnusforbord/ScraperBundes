@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 from selenium import webdriver
@@ -23,13 +23,14 @@ MONGODB_URI = "mongodb+srv://magnusff:400vtnsu@eurohandball.ud5vgdl.mongodb.net/
 client = MongoClient(MONGODB_URI, tls=True, tlsAllowInvalidCertificates=True)
 db = client['sent_teams_db']
 sent_teams_collection = db['sent_teams_bundes']
+processed_links_collection = db['processed_links']
 
 
 def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date()
+    today = datetime.today().date() - timedelta(4)
     return match_date.date() == today
 
 
@@ -110,6 +111,17 @@ def insert_missing_players(team_name, date, collection):
     }
     collection.insert_one(document)
 
+def is_link_processed(link):
+    query = {"link": link}
+    result = processed_links_collection.find_one(query)
+    return result is not None
+
+def store_processed_link(link):
+    document = {
+        "link": link,
+        "date": datetime.today().date().isoformat()
+    }
+    processed_links_collection.insert_one(document)
 
 def already_sent(team_name, date, collection):
     query = {"team_name": team_name, "date": date}
@@ -186,6 +198,8 @@ for row in match_rows:
             match_links.append(match_link)
 
 for match_link in match_links:
+    if is_link_processed(match_link):
+        continue
     browser.get(match_link)
 
     pattern = r'spieltag--([\w\s-]+?)---([\w\s-]+?)\/'
@@ -281,14 +295,16 @@ for match_link in match_links:
 
         today = datetime.combine(date.today(), datetime.min.time())
 
+        store_processed_link(match_link)
+
         if not already_sent(home_team, today, sent_teams_collection):
             send_telegram_message(missing_home_team_players_info, home_team, CHAT_ID_1)
-            send_telegram_message(missing_home_team_players_info, home_team, CHAT_ID_2)
+            #send_telegram_message(missing_home_team_players_info, home_team, CHAT_ID_2)
             insert_missing_players(home_team, today, sent_teams_collection)
 
         if not already_sent(away_team, today, sent_teams_collection):
             send_telegram_message(missing_away_team_players_info, away_team, CHAT_ID_1)
-            send_telegram_message(missing_away_team_players_info, away_team, CHAT_ID_2)
+            #send_telegram_message(missing_away_team_players_info, away_team, CHAT_ID_2)
             insert_missing_players(away_team, today, sent_teams_collection)
 
     except NoSuchElementException:
