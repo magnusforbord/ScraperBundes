@@ -30,7 +30,7 @@ def is_today(date_string):
     date_string = date_string.split()[0].rsplit('.', 1)[0]
     current_year = datetime.today().year
     match_date = datetime.strptime(f"{date_string}.{current_year}", "%d.%m.%Y")
-    today = datetime.today().date() - timedelta(4)
+    today = datetime.today().date()
     return match_date.date() == today
 
 
