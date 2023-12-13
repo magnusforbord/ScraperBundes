@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from bs4 import BeautifulSoup
 from pymongo import MongoClient
 from selenium import webdriver
@@ -12,18 +12,24 @@ from selenium.webdriver.chrome.service import Service
 from telegram import Bot
 from webdriver_manager.chrome import ChromeDriverManager
 import re
+from dotenv import load_dotenv
 
-TELEGRAM_TOKEN = '6292195328:AAGvt_A6i9TY-kf6REOSYoMymHm2NzQk-Hk'
-CHAT_ID_1 = '83365754'
-CHAT_ID_2 = '686955276'
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+CHAT_ID_1 = os.getenv('CHAT_ID_1')
+CHAT_ID_2 = os.getenv('CHAT_ID_2')
+MONGODB_URI = os.getenv('MONGODB_URI')
+DB_NAME = os.getenv('DB_NAME')
+SENT_TEAMS_COLLECTION = os.getenv('SENT_TEAMS_COLLECTION')
+PROCESSED_LINKS_COLLECTION = os.getenv('PROCESSED_LINKS_COLLECTION')
+
 bot = Bot(token=TELEGRAM_TOKEN)
 
-MONGODB_URI = "mongodb+srv://magnusff:400vtnsu@eurohandball.ud5vgdl.mongodb.net/?retryWrites=true&w=majority"
-
 client = MongoClient(MONGODB_URI, tls=True, tlsAllowInvalidCertificates=True)
-db = client['sent_teams_db']
-sent_teams_collection = db['sent_teams_bundes']
-processed_links_collection = db['processed_links']
+db = client[DB_NAME]
+sent_teams_collection = db[SENT_TEAMS_COLLECTION]
+processed_links_collection = db[PROCESSED_LINKS_COLLECTION]
 
 
 def is_today(date_string):
@@ -65,12 +71,12 @@ def click_statistik_button(browser):
 def extract_all_player_info(browser):
     player_name_list = []
     players_goals_list = []
-    players_assists_list = []  # New list for assists
+    players_assists_list = []
 
     try:
         player_name_elements = browser.find_elements(By.XPATH, '//td[@class="aleft footable-visible"]/a')
         player_goals_elements = browser.find_elements(By.XPATH, '//tr/td[4]')
-        player_assist_elements = browser.find_elements(By.XPATH, '//tr/td[9]')  # XPath to locate assist elements
+        player_assist_elements = browser.find_elements(By.XPATH, '//tr/td[9]')
 
         for player_name_element in player_name_elements:
             player_name_parts = player_name_element.text.strip().split('\n')
@@ -81,14 +87,14 @@ def extract_all_player_info(browser):
             player_goals = player_goals_element.text.strip()
             players_goals_list.append(player_goals)
 
-        for player_assist_element in player_assist_elements:  # Loop to extract assist data
+        for player_assist_element in player_assist_elements:
             player_assists = player_assist_element.text.strip()
-            players_assists_list.append(player_assists)  # Append assist data to the new list
+            players_assists_list.append(player_assists)
 
     except NoSuchElementException:
         print("Player info not found.")
 
-    return player_name_list, players_goals_list, players_assists_list  # Include the new list in the return statement
+    return player_name_list, players_goals_list, players_assists_list
 
 
 def normalize_player_name(player_name):
